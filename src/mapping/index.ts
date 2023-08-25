@@ -22,4 +22,5 @@ export type Media = {
     id: string;
     title: string;
     coverImage: string | null;
-}
+    description?: string;
+};

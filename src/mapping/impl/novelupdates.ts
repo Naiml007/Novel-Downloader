@@ -12,14 +12,14 @@ export default class NovelUpdates extends Provider {
 
     override async search(query: string, year?: number): Promise<Result[] | undefined> {
         const results: Result[] = [];
-    
+
         const searchData = await this.request(`${this.url}/series-finder/?sf=1&sh=${encodeURIComponent(query)}&nt=2443,26874,2444&ge=280&sort=sread&order=desc`, {
             method: "GET",
             headers: {
-                Referer: this.url
-            }
+                Referer: this.url,
+            },
         });
-    
+
         const data = await searchData.text();
 
         const $ = load(data);
@@ -38,16 +38,18 @@ export default class NovelUpdates extends Provider {
                 year: 0,
             });
         });
-    
+
         return results;
-    }    
+    }
 
     override async info(id: string): Promise<Media | undefined> {
-        const data = await (await this.request(`${this.url}${id}`, {
-            headers: {
-                Cookie: "_ga=;",
-            },
-        })).text();
+        const data = await (
+            await this.request(`${this.url}${id}`, {
+                headers: {
+                    Cookie: "_ga=;",
+                },
+            })
+        ).text();
 
         const $ = load(data);
 
@@ -55,30 +57,37 @@ export default class NovelUpdates extends Provider {
             id: slugify($("div.w-blog-content div.seriestitlenu").text()),
             title: $("div.w-blog-content div.seriestitlenu").text(),
             coverImage: $("div.wpb_wrapper div.seriesimg img").attr("src") ?? null,
-        }
+            description: $("div.wpb_wrapper div#editdescription").text(),
+        };
     }
 
     override async fetchChapters(id: string): Promise<Chapter[] | undefined> {
         const chapters: Chapter[] = [];
 
-        const data = await (await this.request(`${this.url}${id}`, {
-            headers: {
-                Cookie: "_ga=;",
-            },
-        })).text();
+        const data = await (
+            await this.request(`${this.url}${id}`, {
+                headers: {
+                    Cookie: "_ga=;",
+                },
+            })
+        ).text();
 
         const $ = load(data);
 
         const postId = $("input#mypostid").attr("value");
 
-        const chapterData = (await (await this.request(`${this.url}/wp-admin/admin-ajax.php`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                Cookie: "_ga=;",
-            },
-            body: `action=nd_getchapters&mypostid=${postId}&mypostid2=0`,
-        })).text()).substring(1);
+        const chapterData = (
+            await (
+                await this.request(`${this.url}/wp-admin/admin-ajax.php`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                        Cookie: "_ga=;",
+                    },
+                    body: `action=nd_getchapters&mypostid=${postId}&mypostid2=0`,
+                })
+            ).text()
+        ).substring(1);
 
         const $$ = load(chapterData);
 
@@ -100,13 +109,15 @@ export default class NovelUpdates extends Provider {
     }
 
     override async fetchPages(id: string): Promise<string | undefined> {
-        const data = await (await this.request(`${this.url}/extnu/${id}/`, {
-            method: "GET",
-            headers: {
-                Cookie: "_ga=;",
-            },
-            redirect: "follow"
-        })).text();
+        const data = await (
+            await this.request(`${this.url}/extnu/${id}/`, {
+                method: "GET",
+                headers: {
+                    Cookie: "_ga=;",
+                },
+                redirect: "follow",
+            })
+        ).text();
 
         const article = await extract(data);
         return article?.content;

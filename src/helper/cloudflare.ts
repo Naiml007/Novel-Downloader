@@ -29,7 +29,7 @@ export default class CloudFlare {
      */
     public async init() {
         puppeteer.use(StealthPlugin());
-        
+
         // These can be optimized more. I just put them here for now.
         const options = {
             headless: this.options.headless,
@@ -40,8 +40,8 @@ export default class CloudFlare {
             executablePath: executablePath(),
             env: {
                 DISPLAY: ":10.0",
-            }
-        }
+            },
+        };
         if (this.options.skip_chromium_download) {
             Object.assign(options, { executablePath: this.options.chromium_path });
         }
@@ -77,12 +77,12 @@ export default class CloudFlare {
                     info: info,
                     options: options,
                     cookies: headers.Cookie,
-                    userAgent: headers["User-Agent"] ?? options.headers?.["User-Agent"] ?? ""
-                })
+                    userAgent: headers["User-Agent"] ?? options.headers?.["User-Agent"] ?? "",
+                });
                 // Set the headers/cookies to the request
                 Object.assign(options?.headers ?? {}, {
                     "User-Agent": headers["User-Agent"],
-                    "Cookie": headers["Cookie"]
+                    Cookie: headers["Cookie"],
                 });
                 // Send a request with the headers
                 const response = await fetch(info, options);
@@ -94,7 +94,7 @@ export default class CloudFlare {
             // Set the headers/cookies to the stored request
             Object.assign(options?.headers ?? {}, {
                 "User-Agent": possible.userAgent,
-                "Cookie": possible.cookies
+                Cookie: possible.cookies,
             });
             // Try to send the request
             const response = await fetch(info, options).catch((err) => {
@@ -140,7 +140,7 @@ export default class CloudFlare {
      * @returns Boolean
      */
     private isCloudflareJSChallenge(content: string): boolean {
-        return content.includes('_cf_chl_opt');
+        return content.includes("_cf_chl_opt");
     }
 
     /**
@@ -148,7 +148,7 @@ export default class CloudFlare {
      * @param url URL to fetch
      * @returns Promise<{ "User-Agent": string, "Cookie": string }>
      */
-    private async getHeaders(url: string): Promise<{ "User-Agent": string | undefined, "Cookie": string }> {
+    private async getHeaders(url: string): Promise<{ "User-Agent": string | undefined; Cookie: string }> {
         // Check if the browser is open or not
         if (!this.browser) {
             // Launch the browser
@@ -170,7 +170,7 @@ export default class CloudFlare {
             // cbeck if it's a CloudFlare challenge. If it is, it will try again.
             if (this.options.wait_for_network_idle) {
                 // Sometimes with slow VPS's/computers, the network will never be idle, so this will timeout
-                await page?.waitForNetworkIdle({ timeout: timeoutInMs });   
+                await page?.waitForNetworkIdle({ timeout: timeoutInMs });
             } else {
                 // Wait for a second
                 await wait(1000);
@@ -201,7 +201,7 @@ export default class CloudFlare {
         // These are the headers required to bypass CloudFlare
         const headers = {
             "User-Agent": userAgent, // Browser User-Agent
-            "Cookie": cookieList.map((cookie) => `${cookie.key}=${cookie.value}`).join('; ') // Cookies as a string
+            Cookie: cookieList.map((cookie) => `${cookie.key}=${cookie.value}`).join("; "), // Cookies as a string
         };
 
         // No need to use that page anymore.
@@ -217,7 +217,7 @@ export default class CloudFlare {
      */
     private toToughCookie(cookie: Cookie): Cookie {
         const { name, value, expires, domain, path } = cookie;
-        const isExpiresValid = expires && typeof expires === 'number';
+        const isExpiresValid = expires && typeof expires === "number";
 
         const expiresDate = isExpiresValid ? new Date(expires * 1000) : new Date(Date.now() + 9999 * 1000);
 
@@ -225,8 +225,8 @@ export default class CloudFlare {
             key: name,
             value,
             expires: expiresDate,
-            domain: domain.startsWith('.') ? domain.substring(1) : domain,
-            path
+            domain: domain.startsWith(".") ? domain.substring(1) : domain,
+            path,
         });
     }
 }

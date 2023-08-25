@@ -9,53 +9,66 @@ import { Readable } from "stream";
 import { finished } from "stream/promises";
 import probe from "probe-image-size";
 import { Media, providers } from "../mapping";
+import webp from "webp-converter";
 
 export const createPDFs = async (providerId: string, chapters: Chapter[], media: Media): Promise<string> => {
-    const parentFolder = join(__dirname, `./novels/${media.id}/${providerId}`);
+    const parentFolder = join(__dirname, `./novels/${media.id.replace(/[^\w .-]/gi, "")}/${providerId}`);
     if (!existsSync(parentFolder)) {
         await mkdir(parentFolder, { recursive: true });
     }
 
     const doc = new PDFDocument({
-        autoFirstPage: false
+        autoFirstPage: false,
     });
     const pdfStream = createWriteStream(`${parentFolder}/${media.title.replace(/[^\w .-]/gi, "")}.pdf`);
     doc.pipe(pdfStream);
 
     // Add cover page
-    const coverPath = `${parentFolder}/cover.png`;
-    await downloadFile(media.coverImage ?? "", coverPath); // Download the image
+    try {
+        const coverPath = `${parentFolder}/cover.png`;
+        await downloadFile(media.coverImage ?? "", coverPath); // Download the image
 
-    const result = await probe(createReadStream(coverPath)); // Get the image size
-    let width = result.width;
-    let height = result.height;
-    const ratio = (width + height) / 2;
-    const a7Ratio = 338.266666661706;
-    const scale = a7Ratio / ratio;
+        const result = await probe(createReadStream(coverPath)); // Get the image size
+        let width = result.width;
+        let height = result.height;
+        const ratio = (width + height) / 2;
+        const a7Ratio = 338.266666661706;
+        const scale = a7Ratio / ratio;
 
-    width = width * scale;
-    height = height * scale;
+        width = width * scale;
+        height = height * scale;
 
-    doc.addPage({ size: [width, height] }).image(coverPath, 0, 0, {
-        align: "center",
-        valign: "center",
-        width: width,
-        height: height,
-    });
+        doc.addPage({ size: [width, height] }).image(coverPath, 0, 0, {
+            align: "center",
+            valign: "center",
+            width: width,
+            height: height,
+        });
+    } catch (e) {
+        console.error(colors.red("Failed to fetch cover image for ") + colors.green(media.title));
+        console.error(e);
+    }
 
     doc.addPage();
 
     doc.info.Title = media.title;
     doc.fontSize(18);
     doc.font("Times-Bold").text(media.title, {
-        width: 500
+        width: 500,
     });
     doc.fontSize(11);
 
+    // Add description
+    if (media.description) {
+        doc.font("Times-Roman").text(media.description);
+        // Spacing below
+        doc.font("Times-Roman").text("");
+    }
+
     // Chapters
-    const chapterText = chapters.map(chapter => `${chapter.number}. ${chapter.title}`).join("\n");
+    const chapterText = chapters.map((chapter) => `${chapter.number}. ${chapter.title}`).join("\n");
     doc.font("Times-Roman").text(chapterText);
-    
+
     for (let i = 0; i < chapters.length; i++) {
         doc.addPage();
 
@@ -65,19 +78,28 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
             console.log(colors.red("Failed to fetch pages for ") + colors.green(chapter.title));
             return undefined;
         });
+
         if (!pages || pages?.length === 0) {
+            doc.fontSize(18);
+            doc.font("Times-Bold").text(chapter.title, {
+                width: 500,
+            });
+            doc.fontSize(11);
             doc.font("Times-Roman").text("No pages found..");
             continue;
         }
-        
+
         const $ = load(pages);
         const elements = $.root().find("*");
 
         doc.fontSize(18);
         doc.font("Times-Bold").text(chapter.title, {
-            width: 500
+            width: 500,
         });
         doc.fontSize(11);
+
+        // Prevent duplicate text
+        let lastText = "";
 
         for (let i = 0; i < elements.length; i++) {
             const element = elements[i];
@@ -86,36 +108,62 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
             if (tagName === "img") {
                 // Handle images
                 const imgSrc = element.attribs.src;
+                if (!imgSrc) continue;
+
                 const imgName = imgSrc.substring(imgSrc.lastIndexOf("/") + 1);
-                const imagePath = `${parentFolder}/${imgName}`;
+                let imagePath = `${parentFolder}/${imgName}`;
 
-                await downloadFile(imgSrc, imagePath); // Download the image
+                try {
+                    await downloadFile(imgSrc, imagePath); // Download the image
 
-                const result = await probe(createReadStream(imagePath)); // Get the image size
-                let width = result.width;
-                let height = result.height;
-                const ratio = (width + height) / 2;
-                const a7Ratio = 338.266666661706;
-                const scale = a7Ratio / ratio;
+                    // Check if webp
+                    if (imgSrc.endsWith(".webp")) {
+                        try {
+                            await webp.dwebp(imagePath, imagePath.replace(".webp", ".png"), "-o");
+                            imagePath = imagePath.replace(".webp", ".png");
 
-                width = width * scale;
-                height = height * scale;
+                            try {
+                                await unlink(`${parentFolder}/${imgName}`);
+                            } catch (e) {
+                                console.error(colors.red("Failed to delete webp image ") + colors.green(imgName));
+                            }
+                        } catch (e) {
+                            console.error(colors.red("Error converting webp image ") + colors.green(imgName));
+                        }
+                    }
 
-                doc.addPage({ size: [width, height] }).image(imagePath, 0, 0, {
-                    align: "center",
-                    valign: "center",
-                    width: width,
-                    height: height,
-                });
+                    const result = await probe(createReadStream(imagePath)); // Get the image size
+                    let width = result.width;
+                    let height = result.height;
+                    const ratio = (width + height) / 2;
+                    const a7Ratio = 338.266666661706;
+                    const scale = a7Ratio / ratio;
 
-                doc.addPage();
+                    width = width * scale;
+                    height = height * scale;
 
-                // Delete the image
-                await unlink(imagePath);
+                    doc.addPage({ size: [width, height] }).image(imagePath, 0, 0, {
+                        align: "center",
+                        valign: "center",
+                        width: width,
+                        height: height,
+                    });
+
+                    doc.addPage();
+
+                    // Delete the image
+                    //await unlink(imagePath);
+                } catch (e) {
+                    console.error(colors.red("Failed to fetch image for ") + colors.green(chapter.title));
+                    console.error(e);
+                }
             } else {
                 // Handle text
+                if ($(element).text() === lastText) continue;
+
                 const text = $(element).text();
                 doc.font("Times-Roman").text(text);
+                lastText = text;
             }
         }
 
@@ -125,7 +173,7 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
     doc.end();
 
     return `${parentFolder}/${media.title.replace(/[^\w .-]/gi, "")}.pdf`;
-}
+};
 
 export const createPDF = async (id: string, providerId: string, chapter: Chapter, pages: string): Promise<string> => {
     const parentFolder = join(__dirname, `./novels/${id}/${providerId}/${chapter.title.replace(/[^\w .-]/gi, "")}`);
@@ -143,7 +191,7 @@ export const createPDF = async (id: string, providerId: string, chapter: Chapter
     doc.info.Title = chapter.title;
     doc.fontSize(18);
     doc.font("Times-Bold").text(chapter.title, {
-        width: 500
+        width: 500,
     });
     doc.fontSize(11);
 

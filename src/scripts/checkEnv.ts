@@ -4,7 +4,7 @@ dotenv.config();
 import colors from "colors";
 import { env } from "../env";
 
-const requiredVariables = []
+const requiredVariables = [];
 const recommendedVariables = ["CENSYS_ID", "CENSYS_SECRET"];
 
 for (const variable of requiredVariables) {

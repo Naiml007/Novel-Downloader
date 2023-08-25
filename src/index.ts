@@ -3,14 +3,13 @@ dotenv.config();
 
 import { providers } from "./mapping";
 import { fetchCorsProxies } from "./helper/proxies";
-import { createPDF, createPDFs } from "./lib/createPDF";
-import { Chapter } from "./mapping/impl";
+import { createPDFs } from "./lib/createPDF";
 
-fetchCorsProxies().then(async() => {
-    const id = "/series/lonely-loser-ill-become-blonde-frivolous-gyarus-favourite/";
+fetchCorsProxies().then(async () => {
+    const id = "/series/a-childhood-friend-reunited-after-10-years-acts-deredere-with-me/";
     const info = await providers.novelupdates.info(id);
     console.log(info);
-    
+
     const chapters = await providers.novelupdates.fetchChapters(id);
     if (!chapters || chapters.length === 0) {
         console.log("Failed to fetch chapters");
@@ -19,5 +18,5 @@ fetchCorsProxies().then(async() => {
 
     console.log("Fetched " + chapters.length + " chapters");
 
-    await createPDFs("novelupdates", chapters, info!).then(console.log)
-})
+    await createPDFs("novelupdates", chapters, info!).then(console.log);
+});
