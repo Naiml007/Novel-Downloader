@@ -92,7 +92,7 @@ export default class NovelUpdates extends Provider {
             });
         });
 
-        return chapters;
+        return chapters.reverse(); // Reverse the chapters so they're in the correct order
     }
 
     override async fetchPages(id: string): Promise<string | undefined> {

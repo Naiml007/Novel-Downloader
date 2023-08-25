@@ -16,9 +16,33 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
         await mkdir(parentFolder, { recursive: true });
     }
 
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({
+        autoFirstPage: false
+    });
     const pdfStream = createWriteStream(`${parentFolder}/${media.title.replace(/[^\w .-]/gi, "")}.pdf`);
     doc.pipe(pdfStream);
+
+    // Add cover page
+    const coverPath = `${parentFolder}/cover.png`;
+    await downloadFile(media.coverImage ?? "", coverPath); // Download the image
+    const result = await probe(createReadStream(coverPath)); // Get the image size
+    let width = result.width;
+    let height = result.height;
+    const ratio = (width + height) / 2;
+    const a7Ratio = 338.266666661706;
+    const scale = a7Ratio / ratio;
+
+    width = width * scale;
+    height = height * scale;
+
+    doc.addPage({ size: [width, height] }).image(coverPath, 0, 0, {
+        align: "center",
+        valign: "center",
+        width: width,
+        height: height,
+    });
+
+    doc.addPage();
 
     doc.info.Title = media.title;
     doc.fontSize(18);

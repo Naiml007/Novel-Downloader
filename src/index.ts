@@ -7,10 +7,11 @@ import { createPDF, createPDFs } from "./lib/createPDF";
 import { Chapter } from "./mapping/impl";
 
 fetchCorsProxies().then(async() => {
-    const info = await providers.novelupdates.info("/series/for-some-reason-the-school-goddess-likes-to-hang-out-at-my-house");
+    const id = "/series/lonely-loser-ill-become-blonde-frivolous-gyarus-favourite/";
+    const info = await providers.novelupdates.info(id);
     console.log(info);
     
-    const chapters = await providers.novelupdates.fetchChapters("/series/for-some-reason-the-school-goddess-likes-to-hang-out-at-my-house");
+    const chapters = await providers.novelupdates.fetchChapters(id);
     if (!chapters || chapters.length === 0) {
         console.log("Failed to fetch chapters");
         return;
