@@ -3,7 +3,6 @@ import { Chapter } from "../mapping/impl";
 import { createReadStream, createWriteStream, existsSync } from "fs";
 import { mkdir, unlink } from "fs/promises";
 import PDFDocument from "pdfkit";
-
 import colors from "colors";
 import { load } from "cheerio";
 import { Readable } from "stream";

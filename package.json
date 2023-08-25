@@ -57,6 +57,10 @@
     "eslint": "^8.45.0",
     "form-data": "^4.0.0",
     "pdfkit": "^0.13.0",
-    "probe-image-size": "^7.2.3"
+    "probe-image-size": "^7.2.3",
+    "puppeteer": "^21.1.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "tough-cookie": "^4.1.3"
   }
 }
