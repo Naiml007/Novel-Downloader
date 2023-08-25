@@ -17,3 +17,9 @@ export type Result = {
     img: string | null;
     providerId: string;
 };
+
+export type Media = {
+    id: string;
+    title: string;
+    coverImage: string | null;
+}

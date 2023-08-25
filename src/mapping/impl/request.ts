@@ -1,9 +1,11 @@
+import CloudFlare from "@/src/helper/cloudflare";
 import { CORS_PROXIES } from "@/src/helper/proxies";
 import colors from "colors";
 
 export default class Http {
     private static bannedProxies: string[] = [];
     public static unbannedProxies: string[] = CORS_PROXIES;
+    private cloudflare = new CloudFlare();
 
     static updateBannedProxies(proxyUrl: string): void {
         if (!this.bannedProxies.includes(proxyUrl)) {

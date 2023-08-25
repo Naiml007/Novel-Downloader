@@ -3,6 +3,7 @@ import puppeteer from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { CookieJar, Cookie } from "tough-cookie";
 import { wait } from ".";
+import { env } from "../env";
 
 export default class CloudFlare {
     private requests: Requests[] = [];
@@ -19,7 +20,7 @@ export default class CloudFlare {
      * @param chromium_path Path to the Chromium binary. Only used if skip_chromium_download is true.
      * @param wait_for_network_idle Whether to wait for the network to be idle before returning the response. This is useful for sites that use AJAX to load content.
      */
-    constructor(options: Options = { headless: false, skip_chromium_download: false, chromium_path: "/usr/bin/chromium-browser", wait_for_network_idle: false }) {
+    constructor(options: Options = { headless: env.PUPPETEER_HEADLESS ?? false, skip_chromium_download: env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD ?? false, chromium_path: env.PUPPETEER_CHROMIUM_PATH ?? "/usr/bin/chromium-browser", wait_for_network_idle: env.PUPPETEER_WAIT_FOR_NETWORK_IDLE ?? false }) {
         this.options = options;
     }
 

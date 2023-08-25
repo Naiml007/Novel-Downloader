@@ -1,12 +1,14 @@
 import Provider, { Chapter } from ".";
 import { load } from "cheerio";
 import { extract } from "@extractus/article-extractor";
-import { type Result } from "..";
+import { Media, type Result } from "..";
+import { slugify } from "@/src/helper";
 
 export default class NovelUpdates extends Provider {
     override rateLimit = 1000;
     override id = "novelupdates";
     override url = "https://www.novelupdates.com";
+    override useProxies = false;
 
     override async search(query: string, year?: number): Promise<Result[] | undefined> {
         const results: Result[] = [];
@@ -16,7 +18,7 @@ export default class NovelUpdates extends Provider {
             headers: {
                 Referer: this.url
             }
-        }, true);
+        });
     
         const data = await searchData.text();
 
@@ -40,6 +42,22 @@ export default class NovelUpdates extends Provider {
         return results;
     }    
 
+    override async info(id: string): Promise<Media | undefined> {
+        const data = await (await this.request(`${this.url}${id}`, {
+            headers: {
+                Cookie: "_ga=;",
+            },
+        })).text();
+
+        const $ = load(data);
+
+        return {
+            id: slugify($("div.w-blog-content div.seriestitlenu").text()),
+            title: $("div.w-blog-content div.seriestitlenu").text(),
+            coverImage: $("div.wpb_wrapper div.seriesimg img").attr("src") ?? null,
+        }
+    }
+
     override async fetchChapters(id: string): Promise<Chapter[] | undefined> {
         const chapters: Chapter[] = [];
 
@@ -47,7 +65,7 @@ export default class NovelUpdates extends Provider {
             headers: {
                 Cookie: "_ga=;",
             },
-        }, true)).text();
+        })).text();
 
         const $ = load(data);
 
@@ -60,7 +78,7 @@ export default class NovelUpdates extends Provider {
                 Cookie: "_ga=;",
             },
             body: `action=nd_getchapters&mypostid=${postId}&mypostid2=0`,
-        }, true)).text()).substring(1);
+        })).text()).substring(1);
 
         const $$ = load(chapterData);
         $$("li.sp_li_chp a[data-id]").each((index, el) => {
@@ -84,7 +102,7 @@ export default class NovelUpdates extends Provider {
                 Cookie: "_ga=;",
             },
             redirect: "follow"
-        }, true)).text();
+        })).text();
 
         const article = await extract(data);
         return article?.content;
