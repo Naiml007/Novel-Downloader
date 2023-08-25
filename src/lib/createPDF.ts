@@ -25,6 +25,7 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
     // Add cover page
     const coverPath = `${parentFolder}/cover.png`;
     await downloadFile(media.coverImage ?? "", coverPath); // Download the image
+
     const result = await probe(createReadStream(coverPath)); // Get the image size
     let width = result.width;
     let height = result.height;
@@ -50,6 +51,10 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
         width: 500
     });
     doc.fontSize(11);
+
+    // Chapters
+    const chapterText = chapters.map(chapter => `${chapter.number}. ${chapter.title}`).join("\n");
+    doc.font("Times-Roman").text(chapterText);
     
     for (let i = 0; i < chapters.length; i++) {
         doc.addPage();

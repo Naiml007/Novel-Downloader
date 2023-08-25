@@ -81,7 +81,11 @@ export default class NovelUpdates extends Provider {
         })).text()).substring(1);
 
         const $$ = load(chapterData);
-        $$("li.sp_li_chp a[data-id]").each((index, el) => {
+
+        const elements = Array.from($$("li.sp_li_chp a[data-id]"));
+        const reversedElements = elements.reverse();
+
+        reversedElements.map((el, index) => {
             const id = $$(el).attr("data-id");
             const title = $$(el).find("span").text();
 
@@ -92,7 +96,7 @@ export default class NovelUpdates extends Provider {
             });
         });
 
-        return chapters.reverse(); // Reverse the chapters so they're in the correct order
+        return chapters;
     }
 
     override async fetchPages(id: string): Promise<string | undefined> {
