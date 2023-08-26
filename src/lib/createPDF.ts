@@ -10,7 +10,7 @@ import { finished } from "stream/promises";
 import probe from "probe-image-size";
 import { Media, providers } from "../mapping";
 import webp from "webp-converter";
-import * as stringSimilarity from "string-similarity";
+import TurndownService from "turndown";
 
 export const createPDFs = async (providerId: string, chapters: Chapter[], media: Media): Promise<string> => {
     const parentFolder = join(__dirname, `./novels/${media.id.replace(/[^\w .-]/gi, "")}`);
@@ -92,6 +92,13 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
         }
 
         const $ = load(pages);
+        const turndownService = new TurndownService({
+            headingStyle: 'atx', // Use ATX-style headings
+            codeBlockStyle: 'fenced', // Use fenced code blocks
+            emDelimiter: '_',
+            strongDelimiter: '**',
+        });
+
         const elements = $.root().find("*");
 
         doc.fontSize(18);
@@ -167,16 +174,10 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                 const isSubstring = duplicateText.some(addedText => normalizedText.includes(addedText) || addedText.includes(normalizedText));
                 if (isSubstring) continue;
 
-                /*
-                const isSimilar = duplicateText.some(addedText => {
-                    const similarity = stringSimilarity.compareTwoStrings(normalizedText, addedText);
-                    return similarity > 0.65; // Adjust the similarity threshold as needed
-                });
+                const outerHTML = $.html(element);
+                const markdownText = turndownService.turndown(outerHTML);
 
-                if (isSimilar) continue;
-                */
-
-                doc.font("Times-Roman").text(text);
+                doc.font("Times-Roman").text(markdownText);
                 
                 duplicateText.push(normalizedText); // Add text to the set
             }
