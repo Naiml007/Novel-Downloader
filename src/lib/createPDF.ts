@@ -10,9 +10,10 @@ import { finished } from "stream/promises";
 import probe from "probe-image-size";
 import { Media, providers } from "../mapping";
 import webp from "webp-converter";
+import * as stringSimilarity from "string-similarity";
 
 export const createPDFs = async (providerId: string, chapters: Chapter[], media: Media): Promise<string> => {
-    const parentFolder = join(__dirname, `./novels/${media.id.replace(/[^\w .-]/gi, "")}/${providerId}`);
+    const parentFolder = join(__dirname, `./novels/${media.id.replace(/[^\w .-]/gi, "")}`);
     if (!existsSync(parentFolder)) {
         await mkdir(parentFolder, { recursive: true });
     }
@@ -60,7 +61,8 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
 
     // Add description
     if (media.description) {
-        doc.font("Times-Roman").text(media.description);
+        const $ = load(media.description);
+        doc.font("Times-Roman").text($.text());
         // Spacing below
         doc.font("Times-Roman").text("");
     }
@@ -99,7 +101,7 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
         doc.fontSize(11);
 
         // Prevent duplicate text
-        let lastText = "";
+        const duplicateText: string[] = [];
 
         for (let i = 0; i < elements.length; i++) {
             const element = elements[i];
@@ -123,12 +125,12 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                             imagePath = imagePath.replace(".webp", ".png");
 
                             try {
-                                await unlink(`${parentFolder}/${imgName}`);
+                                if (`${parentFolder}/${imgName}` !== imagePath) await unlink(`${parentFolder}/${imgName}`);
                             } catch (e) {
-                                console.error(colors.red("Failed to delete webp image ") + colors.green(imgName));
+                                console.error(colors.red("Failed to delete image ") + colors.green(imgName));
                             }
                         } catch (e) {
-                            console.error(colors.red("Error converting webp image ") + colors.green(imgName));
+                            console.error(colors.red("Error converting image ") + colors.green(imgName));
                         }
                     }
 
@@ -158,12 +160,25 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                     console.error(e);
                 }
             } else {
-                // Handle text
-                if ($(element).text() === lastText) continue;
-
+                // Handle duplicate text
                 const text = $(element).text();
+                const normalizedText = text.trim().replace(/\s/g, "").replace(/[^\w]/gi, "").toLowerCase();
+
+                const isSubstring = duplicateText.some(addedText => normalizedText.includes(addedText) || addedText.includes(normalizedText));
+                if (isSubstring) continue;
+
+                /*
+                const isSimilar = duplicateText.some(addedText => {
+                    const similarity = stringSimilarity.compareTwoStrings(normalizedText, addedText);
+                    return similarity > 0.65; // Adjust the similarity threshold as needed
+                });
+
+                if (isSimilar) continue;
+                */
+
                 doc.font("Times-Roman").text(text);
-                lastText = text;
+                
+                duplicateText.push(normalizedText); // Add text to the set
             }
         }
 

@@ -6,7 +6,7 @@ import { fetchCorsProxies } from "./helper/proxies";
 import { createPDFs } from "./lib/createPDF";
 
 fetchCorsProxies().then(async () => {
-    const id = "/series/a-childhood-friend-reunited-after-10-years-acts-deredere-with-me/";
+    const id = "/series/the-girl-of-my-first-love-whom-i-met-again-after-seven-years-im-falling-in-love-with-you-for-the-second-time/";
     const info = await providers.novelupdates.info(id);
     console.log(info);
 
