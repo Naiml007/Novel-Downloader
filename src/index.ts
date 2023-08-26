@@ -19,5 +19,5 @@ fetchCorsProxies().then(async () => {
 
     console.log("Fetched " + chapters.length + " chapters");
 
-    await createPDFs("novelupdates", chapters.slice(0, 2), info!).then(console.log);
+    await createPDFs("novelupdates", chapters, info!).then(console.log);
 });

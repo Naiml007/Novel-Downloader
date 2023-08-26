@@ -235,6 +235,20 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                         duplicateText.push(normalizedText); // Add text to the set
                     }
                 }
+
+                if (imgs.length === 0) {
+                    const markdownText = turndownService.turndown($(element).html());
+
+                    // Edit markdown to be formatted here
+                    const pdfKitFormattedText = markdownText
+                        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
+                        .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+
+                    const formattedText = $("<div>").html(pdfKitFormattedText).text(); // Remove HTML entities
+                    elementsToInsert.push({ type: "text", content: formattedText });
+                    
+                    duplicateText.push(normalizedText); // Add text to the set
+                }
             }
         }
 
@@ -271,74 +285,6 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
     doc.end();
 
     return `${parentFolder}/${media.title.replace(/[^\w .-]/gi, "")}.pdf`;
-};
-
-export const createPDF = async (id: string, providerId: string, chapter: Chapter, pages: string): Promise<string> => {
-    const parentFolder = join(__dirname, `./novels/${id}/${providerId}/${chapter.title.replace(/[^\w .-]/gi, "")}`);
-    if (existsSync(`${parentFolder}/${chapter.title.replace(/[^\w .-]/gi, "")}.pdf`)) return `${parentFolder}/${chapter.title.replace(/[^\w .-]/gi, "")}.pdf`;
-
-    if (!existsSync(parentFolder)) {
-        await mkdir(parentFolder, { recursive: true });
-    }
-
-    console.log(colors.blue("Creating PDF for ") + colors.green(chapter.title));
-
-    const doc = new PDFDocument();
-    const pdfStream = createWriteStream(`${parentFolder}/${chapter.title.replace(/[^\w .-]/gi, "")}.pdf`);
-    doc.pipe(pdfStream);
-    doc.info.Title = chapter.title;
-    doc.fontSize(18);
-    doc.font("Times-Bold").text(chapter.title, {
-        width: 500,
-    });
-    doc.fontSize(11);
-
-    const $ = load(pages);
-    const elements = $.root().find("*");
-
-    for (let i = 0; i < elements.length; i++) {
-        const element = elements[i];
-        const tagName = element.tagName;
-
-        if (tagName === "img") {
-            // Handle images
-            const imgSrc = element.attribs.src;
-            const imgName = imgSrc.substring(imgSrc.lastIndexOf("/") + 1);
-            const imagePath = `${parentFolder}/${imgName}`;
-
-            await downloadFile(imgSrc, imagePath); // Download the image
-
-            const result = await probe(createReadStream(imagePath)); // Get the image size
-            let width = result.width;
-            let height = result.height;
-            const ratio = (width + height) / 2;
-            const a7Ratio = 338.266666661706;
-            const scale = a7Ratio / ratio;
-
-            width = width * scale;
-            height = height * scale;
-
-            doc.addPage({ size: [width, height] }).image(imagePath, 0, 0, {
-                align: "center",
-                valign: "center",
-                width: width,
-                height: height,
-            });
-
-            doc.addPage();
-
-            // Delete the image
-            await unlink(imagePath);
-        } else {
-            // Handle text
-            const text = $(element).text();
-            doc.font("Times-Roman").text(text);
-        }
-    }
-
-    doc.end();
-
-    return `${parentFolder}/${chapter.title.replace(/[^\w .-]/gi, "")}.pdf`;
 };
 
 async function downloadFile(file: string, path: string, headers?: any) {
