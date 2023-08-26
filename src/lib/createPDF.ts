@@ -120,6 +120,10 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                 const imgSrc = element.attribs.src;
                 if (!imgSrc) continue;
 
+                // Check if image is already added
+                const isDuplicate = elementsToInsert.some(element => element.url === imgSrc);
+                if (isDuplicate) continue;
+
                 const imgName = `${chapter.title.replace(/[^\w .-]/gi, "")}-image-${i}.${imgSrc.endsWith(".webp") ? "webp" : "png"}`;
                 let imagePath = `${parentFolder}/${imgName}`;
 
@@ -159,73 +163,77 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                 if (isSubstring) continue;
 
                 // Text may include images.
-                const imgElement = $(element).find("img");
-                if (imgElement) {
-                    const imgSrc = imgElement.attr("src");
-                    if (!imgSrc) continue;
-
-                    // Get text before and after the image
-                    const textBefore = $(element).html()?.split(imgElement.parents().html() ?? "")[0];
-                    const textAfter = $(element).html()?.split(imgElement.parents().html() ?? "")[1];
-
-                    // Add text before the image
-                    const markdownTextBefore = turndownService.turndown(textBefore);
-                    const pdfKitFormattedTextBefore = markdownTextBefore
-                        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
-                        .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
-
-                    const formattedTextBefore = $("<div>").html(pdfKitFormattedTextBefore).text(); // Remove HTML entities
-                    elementsToInsert.push({ type: "text", content: formattedTextBefore });
-
-                    const imgName = `${chapter.title.replace(/[^\w .-]/gi, "")}-image-${i}.${imgSrc.endsWith(".webp") ? "webp" : "png"}`;
-                    let imagePath = `${parentFolder}/${imgName}`;
-
-                    try {
-                        await downloadFile(imgSrc, imagePath); // Download the image
-
-                        // Check if webp
-                        if (imgSrc.endsWith(".webp")) {
-                            try {
-                                await webp.dwebp(imagePath, imagePath.replace(".webp", ".png"), "-o");
-                                imagePath = imagePath.replace(".webp", ".png");
-
-                                try {
-                                    if (`${parentFolder}/${imgName}` !== imagePath) await unlink(`${parentFolder}/${imgName}`);
-                                } catch (e) {
-                                    console.error(colors.red("Failed to delete image ") + colors.green(imgName));
-                                }
-                            } catch (e) {
-                                console.error(colors.red("Error converting image ") + colors.green(imgName));
-                            }
-                        }
-                        elementsToInsert.push({ type: "image", content: imagePath });
-                    } catch (e) {
-                        console.error(colors.red("Failed to fetch image for ") + colors.green(chapter.title));
-                        console.error(e);
-                    }
-
-                    // Add text after the image
-                    const markdownTextAfter = turndownService.turndown(textAfter);
-                    const pdfKitFormattedTextAfter = markdownTextAfter
-                        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
-                        .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
-
-                    const formattedTextAfter = $("<div>").html(pdfKitFormattedTextAfter).text(); // Remove HTML entities
-                    elementsToInsert.push({ type: "text", content: formattedTextAfter });
-
-                    duplicateText.push(normalizedText); // Add text to the set
-                } else {
-                    const markdownText = turndownService.turndown($(element).html());
-
-                    // Edit markdown to be formatted here
-                    const pdfKitFormattedText = markdownText
-                        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
-                        .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
-
-                    const formattedText = $("<div>").html(pdfKitFormattedText).text(); // Remove HTML entities
-                    elementsToInsert.push({ type: "text", content: formattedText });
+                const imgs = $(element).find("img");
+                for (let i = 0; i < imgs.length; i++) {
+                    const imgElement = $(imgs[i]);
                     
-                    duplicateText.push(normalizedText); // Add text to the set
+                    if (imgElement) {
+                        const imgSrc = imgElement.attr("src");
+                        if (!imgSrc) continue;
+
+                        // Get text before and after the image
+                        const textBefore = load($(element).html()?.split(imgElement.parents().html() ?? "")[0] ?? "").html();
+                        const textAfter = load($(element).html()?.split(imgElement.parents().html() ?? "")[1] ?? "").html();
+
+                        // Add text before the image
+                        const markdownTextBefore = turndownService.turndown(textBefore);
+                        const pdfKitFormattedTextBefore = markdownTextBefore
+                            .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
+                            .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+
+                        const formattedTextBefore = $("<div>").html(pdfKitFormattedTextBefore).text(); // Remove HTML entities
+                        elementsToInsert.push({ type: "text", content: formattedTextBefore });
+
+                        const imgName = `${chapter.title.replace(/[^\w .-]/gi, "")}-image-${i}.${imgSrc.endsWith(".webp") ? "webp" : "png"}`;
+                        let imagePath = `${parentFolder}/${imgName}`;
+
+                        try {
+                            await downloadFile(imgSrc, imagePath); // Download the image
+
+                            // Check if webp
+                            if (imgSrc.endsWith(".webp")) {
+                                try {
+                                    await webp.dwebp(imagePath, imagePath.replace(".webp", ".png"), "-o");
+                                    imagePath = imagePath.replace(".webp", ".png");
+
+                                    try {
+                                        if (`${parentFolder}/${imgName}` !== imagePath) await unlink(`${parentFolder}/${imgName}`);
+                                    } catch (e) {
+                                        console.error(colors.red("Failed to delete image ") + colors.green(imgName));
+                                    }
+                                } catch (e) {
+                                    console.error(colors.red("Error converting image ") + colors.green(imgName));
+                                }
+                            }
+                            elementsToInsert.push({ type: "image", content: imagePath, url: imgSrc });
+                        } catch (e) {
+                            console.error(colors.red("Failed to fetch image for ") + colors.green(chapter.title));
+                            console.error(e);
+                        }
+
+                        // Add text after the image
+                        const markdownTextAfter = turndownService.turndown(textAfter);
+                        const pdfKitFormattedTextAfter = markdownTextAfter
+                            .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
+                            .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+
+                        const formattedTextAfter = $("<div>").html(pdfKitFormattedTextAfter).text(); // Remove HTML entities
+                        elementsToInsert.push({ type: "text", content: formattedTextAfter });
+
+                        duplicateText.push(normalizedText); // Add text to the set
+                    } else {
+                        const markdownText = turndownService.turndown($(element).html());
+
+                        // Edit markdown to be formatted here
+                        const pdfKitFormattedText = markdownText
+                            .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
+                            .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+
+                        const formattedText = $("<div>").html(pdfKitFormattedText).text(); // Remove HTML entities
+                        elementsToInsert.push({ type: "text", content: formattedText });
+                        
+                        duplicateText.push(normalizedText); // Add text to the set
+                    }
                 }
             }
         }
