@@ -6,8 +6,7 @@ import { fetchCorsProxies } from "./helper/proxies";
 import { createPDFs } from "./lib/createPDF";
 
 fetchCorsProxies().then(async () => {
-    //const id = "/series/a-very-popular-idol-classmate-has-taken-a-liking-to-me-a-person-who-doesnt-want-to-work-for-whole-life/";
-    const id = "/series/the-story-of-two-engaged-childhood-friends-trying-to-fall-in-love/";
+    const id = "/series/the-story-of-me-a-boy-versatile-in-housework-taking-care-of-a-solitary-but-beautiful-girl-from-morning-till-night/";
     const info = await providers.novelupdates.info(id);
     console.log(info);
 

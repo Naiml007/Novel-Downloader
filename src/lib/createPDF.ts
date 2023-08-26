@@ -63,8 +63,6 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
     if (media.description) {
         const $ = load(media.description);
         doc.font("Times-Roman").text($.text());
-        // Spacing below
-        doc.font("Times-Roman").text("");
     }
 
     // Chapters
@@ -93,10 +91,10 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
 
         const $ = load(pages);
         const turndownService = new TurndownService({
-            headingStyle: 'atx', // Use ATX-style headings
-            codeBlockStyle: 'fenced', // Use fenced code blocks
-            emDelimiter: '_',
-            strongDelimiter: '**',
+            headingStyle: "atx", // Use ATX-style headings
+            codeBlockStyle: "fenced", // Use fenced code blocks
+            emDelimiter: "_",
+            strongDelimiter: "**",
         });
 
         const elements = $.root().find("*");
@@ -109,7 +107,7 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
 
         // Prevent duplicate text
         const duplicateText: string[] = [];
-        const elementsToInsert: { type: "text" | "image", content: string, url?: string }[] = [];
+        const elementsToInsert: { type: "text" | "image"; content: string; url?: string }[] = [];
 
         for (let i = 0; i < elements.length; i++) {
             const element = elements[i];
@@ -121,7 +119,7 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                 if (!imgSrc) continue;
 
                 // Check if image is already added
-                const isDuplicate = elementsToInsert.some(element => element.url === imgSrc);
+                const isDuplicate = elementsToInsert.some((element) => element.url === imgSrc);
                 if (isDuplicate) continue;
 
                 const imgName = `${chapter.title.replace(/[^\w .-]/gi, "")}-image-${i}.${imgSrc.endsWith(".webp") ? "webp" : "png"}`;
@@ -159,27 +157,32 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                 const text = $(element).text();
                 const normalizedText = text.trim().replace(/\s/g, "").replace(/[^\w]/gi, "").toLowerCase();
 
-                const isSubstring = duplicateText.some(addedText => normalizedText.includes(addedText) || addedText.includes(normalizedText));
+                const isSubstring = duplicateText.some((addedText) => normalizedText.includes(addedText) || addedText.includes(normalizedText));
                 if (isSubstring) continue;
 
                 // Text may include images.
                 const imgs = $(element).find("img");
                 for (let i = 0; i < imgs.length; i++) {
                     const imgElement = $(imgs[i]);
-                    
+
                     if (imgElement) {
                         const imgSrc = imgElement.attr("src");
                         if (!imgSrc) continue;
 
                         // Get text before and after the image
-                        const textBefore = load($(element).html()?.split(imgElement.parents().html() ?? "")[0] ?? "").html();
-                        const textAfter = load($(element).html()?.split(imgElement.parents().html() ?? "")[1] ?? "").html();
+                        const htmlArray =
+                            $(element)
+                                .html()
+                                ?.split(imgElement.parents().html() ?? "") ?? [];
+                        const imageHTML = imgElement.parent().html() ?? "";
+                        const textBefore = load(htmlArray[0]).html().replaceAll(imageHTML, "");
+                        const textAfter = load(htmlArray[1]).html().replaceAll(imageHTML, "");
 
                         // Add text before the image
                         const markdownTextBefore = turndownService.turndown(textBefore);
                         const pdfKitFormattedTextBefore = markdownTextBefore
                             .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
-                            .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+                            .replace(/_(.*?)_/g, "<i>$1</i>"); // _italic_
 
                         const formattedTextBefore = $("<div>").html(pdfKitFormattedTextBefore).text(); // Remove HTML entities
                         elementsToInsert.push({ type: "text", content: formattedTextBefore });
@@ -215,7 +218,7 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                         const markdownTextAfter = turndownService.turndown(textAfter);
                         const pdfKitFormattedTextAfter = markdownTextAfter
                             .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
-                            .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+                            .replace(/_(.*?)_/g, "<i>$1</i>"); // _italic_
 
                         const formattedTextAfter = $("<div>").html(pdfKitFormattedTextAfter).text(); // Remove HTML entities
                         elementsToInsert.push({ type: "text", content: formattedTextAfter });
@@ -227,11 +230,11 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                         // Edit markdown to be formatted here
                         const pdfKitFormattedText = markdownText
                             .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
-                            .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+                            .replace(/_(.*?)_/g, "<i>$1</i>"); // _italic_
 
                         const formattedText = $("<div>").html(pdfKitFormattedText).text(); // Remove HTML entities
                         elementsToInsert.push({ type: "text", content: formattedText });
-                        
+
                         duplicateText.push(normalizedText); // Add text to the set
                     }
                 }
@@ -242,11 +245,11 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                     // Edit markdown to be formatted here
                     const pdfKitFormattedText = markdownText
                         .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
-                        .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+                        .replace(/_(.*?)_/g, "<i>$1</i>"); // _italic_
 
                     const formattedText = $("<div>").html(pdfKitFormattedText).text(); // Remove HTML entities
                     elementsToInsert.push({ type: "text", content: formattedText });
-                    
+
                     duplicateText.push(normalizedText); // Add text to the set
                 }
             }
@@ -257,24 +260,28 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
             if (elementToInsert.type === "text") {
                 doc.font("Times-Roman").text(elementToInsert.content);
             } else if (elementToInsert.type === "image") {
-                const imagePath = elementToInsert.content;
-                const result = await probe(createReadStream(imagePath));
-                let width = result.width;
-                let height = result.height;
-                const ratio = (width + height) / 2;
-                const a7Ratio = 338.266666661706;
-                const scale = a7Ratio / ratio;
+                try {
+                    const imagePath = elementToInsert.content;
+                    const result = await probe(createReadStream(imagePath));
+                    let width = result.width;
+                    let height = result.height;
+                    const ratio = (width + height) / 2;
+                    const a7Ratio = 338.266666661706;
+                    const scale = a7Ratio / ratio;
 
-                width = width * scale;
-                height = height * scale;
+                    width = width * scale;
+                    height = height * scale;
 
-                doc.addPage({ size: [width, height] }).image(imagePath, 0, 0, {
-                    align: "center",
-                    valign: "center",
-                    width: width,
-                    height: height,
-                });
-
+                    doc.addPage({ size: [width, height] }).image(imagePath, 0, 0, {
+                        align: "center",
+                        valign: "center",
+                        width: width,
+                        height: height,
+                    });
+                } catch (e) {
+                    console.error(colors.red("Failed to add image for ") + colors.green(chapter.title));
+                    console.error(e);
+                }
                 doc.addPage();
             }
         }
