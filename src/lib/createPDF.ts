@@ -109,6 +109,7 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
 
         // Prevent duplicate text
         const duplicateText: string[] = [];
+        const elementsToInsert: { type: "text" | "image", content: string, url?: string }[] = [];
 
         for (let i = 0; i < elements.length; i++) {
             const element = elements[i];
@@ -141,24 +142,7 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                         }
                     }
 
-                    const result = await probe(createReadStream(imagePath)); // Get the image size
-                    let width = result.width;
-                    let height = result.height;
-                    const ratio = (width + height) / 2;
-                    const a7Ratio = 338.266666661706;
-                    const scale = a7Ratio / ratio;
-
-                    width = width * scale;
-                    height = height * scale;
-
-                    doc.addPage({ size: [width, height] }).image(imagePath, 0, 0, {
-                        align: "center",
-                        valign: "center",
-                        width: width,
-                        height: height,
-                    });
-
-                    doc.addPage();
+                    elementsToInsert.push({ type: "image", content: imagePath, url: imgSrc });
 
                     // Delete the image
                     //await unlink(imagePath);
@@ -174,18 +158,102 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                 const isSubstring = duplicateText.some(addedText => normalizedText.includes(addedText) || addedText.includes(normalizedText));
                 if (isSubstring) continue;
 
-                const outerHTML = $.html(element);
-                const markdownText = turndownService.turndown(outerHTML);
+                // Text may include images.
+                const imgElement = $(element).find("img");
+                if (imgElement) {
+                    const imgSrc = imgElement.attr("src");
+                    if (!imgSrc) continue;
 
-                // Edit markdown to be formatted here
-                const pdfKitFormattedText = markdownText
-                    .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
-                    .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+                    // Get text before and after the image
+                    const textBefore = $(element).html()?.split(imgElement.parents().html() ?? "")[0];
+                    const textAfter = $(element).html()?.split(imgElement.parents().html() ?? "")[1];
 
-                const formattedText = $("<div>").html(pdfKitFormattedText).text(); // Remove HTML entities
-                doc.font("Times-Roman").text(formattedText);
-                
-                duplicateText.push(normalizedText); // Add text to the set
+                    // Add text before the image
+                    const markdownTextBefore = turndownService.turndown(textBefore);
+                    const pdfKitFormattedTextBefore = markdownTextBefore
+                        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
+                        .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+
+                    const formattedTextBefore = $("<div>").html(pdfKitFormattedTextBefore).text(); // Remove HTML entities
+                    elementsToInsert.push({ type: "text", content: formattedTextBefore });
+
+                    const imgName = `${chapter.title.replace(/[^\w .-]/gi, "")}-image-${i}.${imgSrc.endsWith(".webp") ? "webp" : "png"}`;
+                    let imagePath = `${parentFolder}/${imgName}`;
+
+                    try {
+                        await downloadFile(imgSrc, imagePath); // Download the image
+
+                        // Check if webp
+                        if (imgSrc.endsWith(".webp")) {
+                            try {
+                                await webp.dwebp(imagePath, imagePath.replace(".webp", ".png"), "-o");
+                                imagePath = imagePath.replace(".webp", ".png");
+
+                                try {
+                                    if (`${parentFolder}/${imgName}` !== imagePath) await unlink(`${parentFolder}/${imgName}`);
+                                } catch (e) {
+                                    console.error(colors.red("Failed to delete image ") + colors.green(imgName));
+                                }
+                            } catch (e) {
+                                console.error(colors.red("Error converting image ") + colors.green(imgName));
+                            }
+                        }
+                        elementsToInsert.push({ type: "image", content: imagePath });
+                    } catch (e) {
+                        console.error(colors.red("Failed to fetch image for ") + colors.green(chapter.title));
+                        console.error(e);
+                    }
+
+                    // Add text after the image
+                    const markdownTextAfter = turndownService.turndown(textAfter);
+                    const pdfKitFormattedTextAfter = markdownTextAfter
+                        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
+                        .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+
+                    const formattedTextAfter = $("<div>").html(pdfKitFormattedTextAfter).text(); // Remove HTML entities
+                    elementsToInsert.push({ type: "text", content: formattedTextAfter });
+
+                    duplicateText.push(normalizedText); // Add text to the set
+                } else {
+                    const markdownText = turndownService.turndown($(element).html());
+
+                    // Edit markdown to be formatted here
+                    const pdfKitFormattedText = markdownText
+                        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
+                        .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+
+                    const formattedText = $("<div>").html(pdfKitFormattedText).text(); // Remove HTML entities
+                    elementsToInsert.push({ type: "text", content: formattedText });
+                    
+                    duplicateText.push(normalizedText); // Add text to the set
+                }
+            }
+        }
+
+        // Insert elements in the correct order into the PDF
+        for (const elementToInsert of elementsToInsert) {
+            if (elementToInsert.type === "text") {
+                doc.font("Times-Roman").text(elementToInsert.content);
+            } else if (elementToInsert.type === "image") {
+                const imagePath = elementToInsert.content;
+                const result = await probe(createReadStream(imagePath));
+                let width = result.width;
+                let height = result.height;
+                const ratio = (width + height) / 2;
+                const a7Ratio = 338.266666661706;
+                const scale = a7Ratio / ratio;
+
+                width = width * scale;
+                height = height * scale;
+
+                doc.addPage({ size: [width, height] }).image(imagePath, 0, 0, {
+                    align: "center",
+                    valign: "center",
+                    width: width,
+                    height: height,
+                });
+
+                doc.addPage();
             }
         }
 
