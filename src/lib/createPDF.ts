@@ -119,7 +119,7 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                 const imgSrc = element.attribs.src;
                 if (!imgSrc) continue;
 
-                const imgName = imgSrc.substring(imgSrc.lastIndexOf("/") + 1);
+                const imgName = `${chapter.title.replace(/[^\w .-]/gi, "")}-image-${i}.${imgSrc.endsWith(".webp") ? "webp" : "png"}`;
                 let imagePath = `${parentFolder}/${imgName}`;
 
                 try {
@@ -177,7 +177,13 @@ export const createPDFs = async (providerId: string, chapters: Chapter[], media:
                 const outerHTML = $.html(element);
                 const markdownText = turndownService.turndown(outerHTML);
 
-                doc.font("Times-Roman").text(markdownText);
+                // Edit markdown to be formatted here
+                const pdfKitFormattedText = markdownText
+                    .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>") // **bold**
+                    .replace(/_(.*?)_/g, "<i>$1</i>");       // _italic_
+
+                const formattedText = $("<div>").html(pdfKitFormattedText).text(); // Remove HTML entities
+                doc.font("Times-Roman").text(formattedText);
                 
                 duplicateText.push(normalizedText); // Add text to the set
             }
